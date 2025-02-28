@@ -1,0 +1,7 @@
+langchain
+langchain-community
+langgraph
+
+ollama
+duckduckgo-search
+semantic-router==0.0.72
