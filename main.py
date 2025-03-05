@@ -6,25 +6,10 @@ from semantic_router.utils.function_call import FunctionSchema
 from pprint import pprint
 import json
 
-
-prompt = """
-You know everything, you must answer every question from the user, you can use the list of tools provided to you.
-Your goal is to provide the user with the best possible answer, including key information about the sources and tools used.
-
-Note, when using a tool, you provide the tool name and the arguments to use in JSON format. 
-For each call, you MUST ONLY use one tool AND the response format must ALWAYS be in the pattern:
-```json
-{"name":"<tool_name>", "parameters": {"<tool_input_key>":<tool_input_value>}}
-```
-Remember, do NOT use any tool with the same query more than once.
-Remember, if the user doesn't ask a specific question, you MUST use the `final_answer` tool directly.
-
-Every time the user asks a question, you take note of some keywords in the memory.
-Every time you find some information related to the user's question, you take note of some keywords in the memory.
-
-You should aim to collect information from a diverse range of sources before providing the answer to the user. 
-Once you have collected plenty of information to answer the user's question use the `final_answer` tool.
-"""
+from AgentRes import MyAgentRes
+from agent import run_agent
+from settings import llm, prompt
+from tools import prompt_tools, browser, dict_tools
 
 # print(res)
 
@@ -36,11 +21,6 @@ Once you have collected plenty of information to answer the user's question use 
 # test
 # print(tool_browser(q))
 
-def browser(question: str) -> str:
-    """Search on DuckDuckGo browser by passing the input `q`"""
-    return DuckDuckGoSearchRun().run(question)
-
-
 # @tool("final_answer")
 # def final_answer(text:str) -> str:
 #     """Returns a natural language response to the user by passing the input `text`.
@@ -48,29 +28,11 @@ def browser(question: str) -> str:
 #     """
 #     return text
 
-def answer(text:str) -> str:
-    """Returns a natural language response to the user by passing the input `text`.
-    You should provide as much context as possible and specify the source of the information.
-    """
-    return text
-
-
-tool_browser = FunctionSchema(browser).to_ollama()
-final_answer = FunctionSchema(answer).to_ollama()
 # print(final_answer)
 # print(tool_browser.get('function'))
-
-dic_tools = {"tool_browser":tool_browser,
-             "final_answer":final_answer}
-
 # print([v.type for n,v in enumerate(dic_tools.values())])
 
-str_tools = "\n".join([str(n+1)+". `"+str(v.get('function').get('name'))+"`: "+str(v.get('function').get('description')) for n,v in enumerate(dic_tools.values())])
 
-prompt_tools = f"You can use the following tools:\n{str_tools}"
-print(prompt_tools)
-
-llm = "llama3.2"
 q = '''who died on September 9, 2024?'''
 
 llm_res = ollama.chat(model=llm,
@@ -92,3 +54,21 @@ llm_output = ollama.chat(
              ])
 
 print("\nllm output:\n", llm_output["message"]["content"])
+
+# test
+# agent_res = MyAgentRes.from_llm(llm_res)
+# print("from\n", llm_res["message"]["content"], "\nto")
+# pprint(agent_res)
+# print("\nOr \n")
+# pprint(MyAgentRes(tool_name = "tool_browser",
+#          tool_input = {'q':'September 9 2024 deaths'},
+#          tool_output = str( browser('September 9 2024 deaths')) ))
+
+history=[{"role": "user", "content": "hi there, how are you?"},
+         {"role": "assistant", "content": "I'm good, thanks!"},
+         {"role": "user", "content": "I have a question"},
+         {"role": "assistant", "content": "tell me"}]
+
+# test agent
+agent_res = run_agent(user_q=q, chat_history=history, lst_res=[], lst_tools=dict_tools.keys())
+print("\nagent_res:", agent_res)
