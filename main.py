@@ -4,6 +4,7 @@ from langchain_community.tools import DuckDuckGoSearchRun
 from semantic_router.utils.function_call import FunctionSchema
 # LLM deciding what tool to use
 from pprint import pprint
+import json
 
 
 prompt = """
@@ -26,13 +27,13 @@ Once you have collected plenty of information to answer the user's question use 
 """
 
 # print(res)
-#
-@tool("tool_browser")
-def tool_browser(q: str) -> str:
-    """Search on DuckDuckGo browser by passing the input `q`"""
-    return DuckDuckGoSearchRun().run(q)
-#
-# # test
+
+# @tool("tool_browser")
+# def tool_browser(q: str) -> str:
+#     """Search on DuckDuckGo browser by passing the input `q`"""
+#     return DuckDuckGoSearchRun().run(q)
+
+# test
 # print(tool_browser(q))
 
 def browser(question: str) -> str:
@@ -40,23 +41,31 @@ def browser(question: str) -> str:
     return DuckDuckGoSearchRun().run(question)
 
 
-@tool("final_answer")
-def final_answer(text:str) -> str:
+# @tool("final_answer")
+# def final_answer(text:str) -> str:
+#     """Returns a natural language response to the user by passing the input `text`.
+#     You should provide as much context as possible and specify the source of the information.
+#     """
+#     return text
+
+def answer(text:str) -> str:
     """Returns a natural language response to the user by passing the input `text`.
     You should provide as much context as possible and specify the source of the information.
     """
     return text
 
-# tool_browser = FunctionSchema(browser).to_ollama()
-# print(tool_browser)
-print(final_answer)
+
+tool_browser = FunctionSchema(browser).to_ollama()
+final_answer = FunctionSchema(answer).to_ollama()
+# print(final_answer)
+# print(tool_browser.get('function'))
 
 dic_tools = {"tool_browser":tool_browser,
              "final_answer":final_answer}
 
-print(dic_tools)
+# print([v.type for n,v in enumerate(dic_tools.values())])
 
-str_tools = "\n".join([str(n+1)+". `"+str(v.name)+"`: "+str(v.description) for n,v in enumerate(dic_tools.values())])
+str_tools = "\n".join([str(n+1)+". `"+str(v.get('function').get('name'))+"`: "+str(v.get('function').get('description')) for n,v in enumerate(dic_tools.values())])
 
 prompt_tools = f"You can use the following tools:\n{str_tools}"
 print(prompt_tools)
@@ -64,9 +73,22 @@ print(prompt_tools)
 llm = "llama3.2"
 q = '''who died on September 9, 2024?'''
 
-res = ollama.chat(model=llm,
+llm_res = ollama.chat(model=llm,
                 messages=[{"role": "system", "content": prompt+"\n"+prompt_tools},
                           {"role": "user", "content":q}], format="json")
 
-# print("\nllm output:\n", res["message"]["content"])
-pprint(res["message"])
+# res["message"]["content"]
+print("\nllm output:\n", llm_res["message"]["content"])
+tool_input = json.loads(llm_res["message"]["content"])["parameters"]["q"]
+print("\n", tool_input)
+
+context = browser(tool_input)
+print("\ntool output:\n", context)
+
+llm_output = ollama.chat(
+    model=llm,
+    messages=[{"role":"system", "content":"Give the most accurate answer using the following information:\n"+context},
+              {"role":"user", "content":q}
+             ])
+
+print("\nllm output:\n", llm_output["message"]["content"])
