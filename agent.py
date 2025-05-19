@@ -23,7 +23,7 @@ def run_agent(user_q:str, chat_history:list[dict], lst_res:list[MyAgentRes], lst
                 *chat_history,
                 {"role":"user", "content":user_q},
                 *memory]
-    pprint(messages) #<--print to see prompt + tools + chat_history
+    # pprint(messages) #<--print to see prompt + tools + chat_history
 
     ## output
     llm_res = ollama.chat(model=llm, messages=messages, format="json")

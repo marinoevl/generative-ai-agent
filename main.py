@@ -1,12 +1,9 @@
 import ollama
-from langchain_core.tools import tool
-from langchain_community.tools import DuckDuckGoSearchRun
-from semantic_router.utils.function_call import FunctionSchema
-# LLM deciding what tool to use
 from pprint import pprint
 import json
 
 from AgentRes import MyAgentRes
+from State import State
 from agent import run_agent
 from settings import llm, prompt
 from tools import prompt_tools, browser, dict_tools
@@ -71,4 +68,36 @@ history=[{"role": "user", "content": "hi there, how are you?"},
 
 # test agent
 agent_res = run_agent(user_q=q, chat_history=history, lst_res=[], lst_tools=dict_tools.keys())
-print("\nagent_res:", agent_res)
+# print("\nagent_res:", agent_res)
+
+state = State({"user_q": q, "chat_history":history, "lst_res":[agent_res], "output": {}})
+pprint(state)
+
+# Agent
+def node_agent(state):
+    print("--- node_agent ---")
+    agent_res = run_agent(lst_tools={k:v for k,v in dict_tools.items() if k in ["tool_browser","final_answer"]},
+                          user_q=state["user_q"],
+                          chat_history=state["chat_history"],
+                          lst_res=state["lst_res"])
+    # print("\nagent_res:", agent_res)
+    return {"lst_res":[agent_res]} #<--must return the list of agent_res
+
+# test
+pprint(node_agent(state))
+
+
+def node_tool(state):
+    print("--- node_tool ---")
+    res = state["lst_res"][-1]
+    print(f"{res.tool_name}(input={res.tool_input})")
+
+    agent_res = MyAgentRes(tool_name=res.tool_name,
+                         tool_input=res.tool_input,
+                         tool_output=str(dict_tools[res.tool_name](res.tool_input)))
+
+    return {"output": agent_res} if res.tool_name == "final_answer" else {"lst_res": [agent_res]}
+
+
+# test
+node_tool(state)
